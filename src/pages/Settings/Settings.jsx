@@ -141,6 +141,9 @@ export default function Settings() {
       setLogoPreview('');
       setBannerPreview('');
       
+      // Dispatch update event for layouts to refresh logo in real-time
+      window.dispatchEvent(new Event('settingsUpdated'));
+      
       const data = res.data;
       setSettings({
         ...data,

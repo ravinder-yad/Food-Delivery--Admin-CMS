@@ -13,6 +13,30 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoWidth, setLogoWidth] = useState(100);
+  const [logoShape, setLogoShape] = useState('round');
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/settings');
+        const data = await res.json();
+        const settingsData = Array.isArray(data) ? data[0] : data;
+        if (settingsData && settingsData.logo) {
+          setLogoUrl(settingsData.logo);
+          setLogoWidth(settingsData.logoWidth || 100);
+          setLogoShape(settingsData.logoShape || 'round');
+        }
+      } catch (error) {
+        console.warn("Could not load brand settings logo in admin layout:", error);
+      }
+    };
+    fetchLogo();
+    window.addEventListener('settingsUpdated', fetchLogo);
+    return () => window.removeEventListener('settingsUpdated', fetchLogo);
+  }, []);
+
   const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: FaChartBar },
     { name: 'Categories', path: '/admin/categories', icon: FaFolderOpen },
@@ -54,7 +78,20 @@ export default function AdminLayout() {
           {/* Brand Header */}
           <div className="h-20 flex items-center justify-between px-6 border-b border-slate-50 bg-slate-50/40">
             <Link to="/admin" className="flex items-center space-x-2.5">
-              <span className="text-3xl">🛵</span>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Brand Logo"
+                  className="object-contain"
+                  style={{
+                    height: '32px',
+                    width: 'auto',
+                    borderRadius: logoShape === 'round' ? '9999px' : logoShape === 'square' ? '6px' : '0px'
+                  }}
+                />
+              ) : (
+                <span className="text-3xl">🛵</span>
+              )}
               <div>
                 <span className="text-lg font-black tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 bg-clip-text text-transparent">
                   QuickBite CMS
@@ -188,8 +225,21 @@ export default function AdminLayout() {
 
             {/* Admin Badge */}
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center font-black text-xs hidden xs:flex">
-                <FaUserShield />
+              <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center overflow-hidden hidden xs:flex shadow-inner bg-white">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="Brand Logo"
+                    className="w-full h-full object-cover"
+                    style={{
+                      borderRadius: logoShape === 'round' ? '9999px' : logoShape === 'square' ? '6px' : '0px'
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-blue-50 text-blue-500 flex items-center justify-center font-black text-xs">
+                    <FaUserShield />
+                  </div>
+                )}
               </div>
               <div className="text-left hidden lg:block">
                 <p className="text-xs font-black text-slate-800 leading-none">Super Admin</p>
