@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { FaSave, FaSpinner, FaGlobe, FaEnvelope, FaPhone, FaFacebook, FaTwitter, FaInstagram, FaYoutube, FaLinkedin } from 'react-icons/fa';
+import {
+  FaSave, FaSpinner, FaGlobe, FaEnvelope, FaPhone, FaUpload, FaImage,
+  FaFacebook, FaTwitter, FaInstagram, FaYoutube, FaLinkedin
+} from 'react-icons/fa';
 
 export default function Settings() {
   const [settings, setSettings] = useState({
     websiteName: '',
     supportEmail: '',
     supportPhone: '',
+    logo: '',
+    banner: '',
     socialLinks: {
       facebook: '',
       twitter: '',
@@ -16,18 +21,26 @@ export default function Settings() {
       linkedin: '',
     }
   });
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Upload States
+  const [selectedLogoFile, setSelectedLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState('');
+  const [selectedBannerFile, setSelectedBannerFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState('');
 
   const fetchSettings = async () => {
     try {
       setLoading(true);
       const res = await axios.get('http://localhost:5000/api/settings');
-      // If server returns array or empty, handle fallback
       const data = Array.isArray(res.data) ? res.data[0] : res.data;
       if (data) {
         setSettings({
           ...data,
+          logo: data.logo || '',
+          banner: data.banner || '',
           socialLinks: {
             facebook: data.socialLinks?.facebook || '',
             twitter: data.socialLinks?.twitter || '',
@@ -68,13 +81,70 @@ export default function Settings() {
     }));
   };
 
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleBannerChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedBannerFile(file);
+      setBannerPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setSaving(true);
-      await axios.put('http://localhost:5000/api/settings', settings);
+
+      const formData = new FormData();
+      formData.append('websiteName', settings.websiteName);
+      formData.append('supportEmail', settings.supportEmail);
+      formData.append('supportPhone', settings.supportPhone);
+      formData.append('socialLinks', JSON.stringify(settings.socialLinks));
+
+      if (selectedLogoFile) {
+        formData.append('logoFile', selectedLogoFile);
+      } else {
+        formData.append('logo', settings.logo);
+      }
+
+      if (selectedBannerFile) {
+        formData.append('bannerFile', selectedBannerFile);
+      } else {
+        formData.append('banner', settings.banner);
+      }
+
+      const res = await axios.put('http://localhost:5000/api/settings', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
       toast.success('System settings saved successfully!');
-      fetchSettings();
+      setSelectedLogoFile(null);
+      setSelectedBannerFile(null);
+      setLogoPreview('');
+      setBannerPreview('');
+      
+      const data = res.data;
+      setSettings({
+        ...data,
+        logo: data.logo || '',
+        banner: data.banner || '',
+        socialLinks: {
+          facebook: data.socialLinks?.facebook || '',
+          twitter: data.socialLinks?.twitter || '',
+          instagram: data.socialLinks?.instagram || '',
+          youtube: data.socialLinks?.youtube || '',
+          linkedin: data.socialLinks?.linkedin || '',
+        }
+      });
     } catch (error) {
       console.error(error);
       toast.error('Failed to update system settings.');
@@ -86,24 +156,91 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-center items-center">
-        <div className="w-10 h-10 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         <span className="text-sm font-bold text-gray-400 mt-4">Connecting to Configuration Node...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl pb-10">
       <div>
         <h1 className="text-2xl font-black text-gray-800">System Settings</h1>
-        <p className="text-sm text-gray-400 mt-1">Configure brand assets, support contacts, and social links</p>
+        <p className="text-sm text-gray-400 mt-1">Configure brand assets, brand logos, support contacts, and social integrations</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Core Settings */}
+        
+        {/* Brand Media Assets */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-6">
           <h2 className="text-lg font-black text-gray-800 border-b border-gray-50 pb-3 flex items-center gap-2">
-            <FaGlobe className="text-rose-500" />
+            <FaImage className="text-blue-600" />
+            <span>Brand Assets & Logo</span>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* Logo Upload Block */}
+            <div className="flex flex-col items-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-xs font-bold text-gray-500 uppercase mb-4 self-start">Brand Logo</span>
+              
+              <div className="relative group w-24 h-24 mb-4 rounded-full border-2 border-blue-500/20 overflow-hidden flex items-center justify-center bg-white shadow-inner">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo Preview" className="w-full h-full object-cover" />
+                ) : settings.logo ? (
+                  <img src={settings.logo} alt="Current Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <FaImage className="text-gray-300 text-3xl" />
+                )}
+              </div>
+
+              <label className="cursor-pointer bg-white hover:bg-slate-100 text-blue-600 border border-blue-200 font-bold text-xs py-2 px-4 rounded-xl transition-all flex items-center gap-2 shadow-sm">
+                <FaUpload />
+                <span>Upload Logo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  className="hidden"
+                />
+              </label>
+              <p className="text-[10px] text-gray-400 mt-2">Recommended: PNG/SVG transparent (256x256px)</p>
+            </div>
+
+            {/* Banner Upload Block */}
+            <div className="flex flex-col items-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-xs font-bold text-gray-500 uppercase mb-4 self-start">Brand Banner</span>
+              
+              <div className="w-full h-24 mb-4 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center bg-white shadow-inner relative">
+                {bannerPreview ? (
+                  <img src={bannerPreview} alt="Banner Preview" className="w-full h-full object-cover" />
+                ) : settings.banner ? (
+                  <img src={settings.banner} alt="Current Banner" className="w-full h-full object-cover" />
+                ) : (
+                  <FaImage className="text-gray-300 text-3xl" />
+                )}
+              </div>
+
+              <label className="cursor-pointer bg-white hover:bg-slate-100 text-blue-600 border border-blue-200 font-bold text-xs py-2 px-4 rounded-xl transition-all flex items-center gap-2 shadow-sm">
+                <FaUpload />
+                <span>Upload Banner</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerChange}
+                  className="hidden"
+                />
+              </label>
+              <p className="text-[10px] text-gray-400 mt-2">Recommended: Widescreen banner image (1200x400px)</p>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Brand & Support Contacts */}
+        <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-6">
+          <h2 className="text-lg font-black text-gray-800 border-b border-gray-50 pb-3 flex items-center gap-2">
+            <FaGlobe className="text-blue-600" />
             <span>Brand & Support Settings</span>
           </h2>
 
@@ -117,7 +254,7 @@ export default function Settings() {
                 value={settings.websiteName}
                 onChange={handleChange}
                 placeholder="e.g. QuickBite"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
               />
             </div>
             <div>
@@ -129,7 +266,7 @@ export default function Settings() {
                 value={settings.supportEmail}
                 onChange={handleChange}
                 placeholder="e.g. support@quickbite.com"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
               />
             </div>
             <div>
@@ -141,7 +278,7 @@ export default function Settings() {
                 value={settings.supportPhone}
                 onChange={handleChange}
                 placeholder="e.g. +91 9999999999"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
               />
             </div>
           </div>
@@ -150,7 +287,7 @@ export default function Settings() {
         {/* Social Settings */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-6">
           <h2 className="text-lg font-black text-gray-800 border-b border-gray-50 pb-3 flex items-center gap-2">
-            <FaFacebook className="text-rose-500" />
+            <FaFacebook className="text-blue-600" />
             <span>Social Integrations</span>
           </h2>
 
@@ -165,7 +302,7 @@ export default function Settings() {
                   value={settings.socialLinks.facebook}
                   onChange={handleSocialChange}
                   placeholder="https://facebook.com/..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -180,7 +317,7 @@ export default function Settings() {
                   value={settings.socialLinks.twitter}
                   onChange={handleSocialChange}
                   placeholder="https://twitter.com/..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -195,7 +332,7 @@ export default function Settings() {
                   value={settings.socialLinks.instagram}
                   onChange={handleSocialChange}
                   placeholder="https://instagram.com/..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -210,7 +347,7 @@ export default function Settings() {
                   value={settings.socialLinks.youtube}
                   onChange={handleSocialChange}
                   placeholder="https://youtube.com/..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -225,7 +362,7 @@ export default function Settings() {
                   value={settings.socialLinks.linkedin}
                   onChange={handleSocialChange}
                   placeholder="https://linkedin.com/in/..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -235,7 +372,7 @@ export default function Settings() {
         <button
           type="submit"
           disabled={saving}
-          className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-6 py-3 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
         >
           {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
           <span>Save System Settings</span>
